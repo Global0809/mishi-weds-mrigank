@@ -687,11 +687,12 @@ scene.add(rangoliStart);
 // --- Mandap (with a stone foundation pad so it seats cleanly) ---------
 const MANDAP = LAYOUT.mandap;
 const mandapBaseY = sampleMaxHeight(MANDAP.pos[0], MANDAP.pos[1], 3.7);
+// Tall enough to always bury into the slope, so the plinth never floats
 const pad = new THREE.Mesh(
-  new THREE.CylinderGeometry(5.1, 5.4, 3, 40),
+  new THREE.CylinderGeometry(5.1, 5.6, 12, 40),
   new THREE.MeshStandardMaterial({ color: PAL.cream, roughness: 0.9, metalness: 0.02 })
 );
-pad.position.set(MANDAP.pos[0], mandapBaseY - 1.5 + 0.04, MANDAP.pos[1]);
+pad.position.set(MANDAP.pos[0], mandapBaseY + 0.04 - 6, MANDAP.pos[1]);
 pad.receiveShadow = true;
 scene.add(pad);
 mount(createMandap(), MANDAP, { y: mandapBaseY });
@@ -850,6 +851,53 @@ let interacting = false;
 let idleTimer = 0;
 const IDLE_DELAY = 4.0;
 
+// --- Free roam ---------------------------------------------------------
+// WASD / arrows fly through the world. This moves the camera AND the orbit
+// pivot together, so you're never stuck circling one fixed point in the middle.
+const keys = Object.create(null);
+const ROAM_CODES = new Set([
+  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'Space', 'ShiftLeft', 'ShiftRight',
+]);
+window.addEventListener('keydown', (e) => {
+  if (!ROAM_CODES.has(e.code)) return;
+  keys[e.code] = true;
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+});
+window.addEventListener('keyup', (e) => { if (ROAM_CODES.has(e.code)) keys[e.code] = false; });
+
+const _fwd = new THREE.Vector3(), _right = new THREE.Vector3(), _move = new THREE.Vector3();
+function updateRoam(dt) {
+  _fwd.subVectors(controls.target, camera.position);
+  _fwd.y = 0;
+  if (_fwd.lengthSq() < 1e-6) return;
+  _fwd.normalize();
+  _right.set(-_fwd.z, 0, _fwd.x); // forward × up
+  _move.set(0, 0, 0);
+  if (keys['KeyW'] || keys['ArrowUp']) _move.add(_fwd);
+  if (keys['KeyS'] || keys['ArrowDown']) _move.sub(_fwd);
+  if (keys['KeyD'] || keys['ArrowRight']) _move.add(_right);
+  if (keys['KeyA'] || keys['ArrowLeft']) _move.sub(_right);
+  if (keys['KeyE'] || keys['Space']) _move.y += 1;
+  if (keys['KeyQ']) _move.y -= 1;
+  if (_move.lengthSq() === 0) return;
+  const speed = (keys['ShiftLeft'] || keys['ShiftRight']) ? 34 : 13;
+  _move.normalize().multiplyScalar(speed * dt);
+  camera.position.add(_move);
+  controls.target.add(_move);
+  // never sink through the ground
+  const floor = getTerrainHeight(camera.position.x, camera.position.z) + 1.5;
+  if (camera.position.y < floor) {
+    const d = floor - camera.position.y;
+    camera.position.y += d;
+    controls.target.y += d;
+  }
+  controls.autoRotate = false;
+  idleTimer = 0;
+  if (elTitle) elTitle.classList.add('gone');
+}
+
 const elLoading = document.getElementById('loading');
 const elTitle = document.getElementById('titlecard');
 const elHint = document.getElementById('hint');
@@ -985,6 +1033,7 @@ function animate() {
       idleTimer = 0;
     }
   } else {
+    updateRoam(dt);
     if (!interacting) {
       idleTimer += dt;
       if (idleTimer > IDLE_DELAY) controls.autoRotate = true;

@@ -123,8 +123,13 @@ export function createCeremonialPath(opts) {
   if (samples.length < 2) return group;
 
   const N = samples.length;
-  const pos = new Float32Array(N * 2 * 3);
-  const uv = new Float32Array(N * 2 * 2);
+  // Sample the terrain ACROSS the width too, not just at the two edges — otherwise
+  // the carpet is a flat chord between its edges and any crown in the ground
+  // between them pokes straight through the middle.
+  const CROSS = 9;
+  const LIFT = 0.16;
+  const pos = new Float32Array(N * CROSS * 3);
+  const uv = new Float32Array(N * CROSS * 2);
   const idx = [];
   const vScale = 3.0; // texture length repeat (~3 units)
 
@@ -140,21 +145,23 @@ export function createCeremonialPath(opts) {
     const px = -tz, pz = tx;
     if (i > 0) arc += Math.hypot(p.x - samples[i - 1].x, p.z - samples[i - 1].z);
 
-    const lx = p.x - px * half, lz = p.z - pz * half;
-    const rx = p.x + px * half, rz = p.z + pz * half;
-    const ly = getHeight(lx, lz) + 0.18;
-    const ry = getHeight(rx, rz) + 0.18;
-
-    const b = i * 6;
-    pos[b] = lx; pos[b + 1] = ly; pos[b + 2] = lz;
-    pos[b + 3] = rx; pos[b + 4] = ry; pos[b + 5] = rz;
-    const u = i * 4;
-    uv[u] = 0; uv[u + 1] = arc / vScale;
-    uv[u + 2] = 1; uv[u + 3] = arc / vScale;
+    for (let j = 0; j < CROSS; j++) {
+      const f = j / (CROSS - 1); // 0..1 across the strip (matches the texture U)
+      const off = (f - 0.5) * 2 * half;
+      const vx = p.x + px * off, vz = p.z + pz * off;
+      const vy = getHeight(vx, vz) + LIFT;
+      const b = (i * CROSS + j) * 3;
+      pos[b] = vx; pos[b + 1] = vy; pos[b + 2] = vz;
+      const u = (i * CROSS + j) * 2;
+      uv[u] = f; uv[u + 1] = arc / vScale;
+    }
 
     if (i < N - 1) {
-      const a0 = i * 2, a1 = a0 + 1, a2 = a0 + 2, a3 = a0 + 3;
-      idx.push(a0, a2, a1, a1, a2, a3);
+      for (let j = 0; j < CROSS - 1; j++) {
+        const a0 = i * CROSS + j, a1 = a0 + 1;
+        const b0 = (i + 1) * CROSS + j, b1 = b0 + 1;
+        idx.push(a0, b0, a1, a1, b0, b1);
+      }
     }
   }
 
