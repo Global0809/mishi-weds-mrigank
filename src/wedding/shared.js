@@ -1,0 +1,25 @@
+// Shared royal color palette for the baraat scene.
+// White, royal gold, deep burgundy dominant; marigold + jasmine florals; saffron accents.
+export const PAL = {
+  white: 0xfaf3e0,
+  ivory: 0xfff8ec,
+  cream: 0xf3e5c8,
+  gold: 0xd4af37,
+  goldBright: 0xffd45c,
+  brass: 0xc08a2d,
+  bronze: 0x8a5a1e,
+  burgundy: 0x5e1220,
+  burgundyDeep: 0x3a0a12,
+  crimson: 0x8c1c2b,
+  maroon: 0x4a0e18,
+  marigold: 0xff8c1a,
+  marigoldDeep: 0xe86a08,
+  jasmine: 0xfff6e8,
+  saffron: 0xff7518,
+  rose: 0xd94f6a,
+  leaf: 0x2f6a2a,
+  skin: 0xc98a5e,
+  skinDark: 0xa66a3e,
+  flame: 0xffb347,
+  emberGlow: 0xff7b2e,
+};
