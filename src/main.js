@@ -238,7 +238,7 @@ function getTerrainHeight(x, z) {
   h += Math.sin(x * 0.07 + 2) * Math.cos(z * 0.06 - 1) * 1.5;
   const distSq = x * x + z * z;
   if (distSq < 400) h *= 0.3 * (distSq / 400);
-  return h;
+  return h + ceremonyLift(x, z);
 }
 
 function faceAngle(px, pz, tx, tz) { return Math.atan2(tx - px, tz - pz); }
@@ -308,6 +308,26 @@ function distToPath(x, z) {
   let best = Infinity;
   for (let i = 0; i < PATH_PTS.length - 1; i++) best = Math.min(best, distToSeg(x, z, PATH_PTS[i], PATH_PTS[i + 1]));
   return best;
+}
+
+// ---- Raised ceremonial terrace ------------------------------------------
+// Lifts the actual GROUND along the carpet corridor and around the mandap+bride
+// so the whole procession stands on elevated, clearly-visible ground (fixes the
+// "everyone looks half underground" problem) — added into getTerrainHeight so
+// the terrain mesh, carpet and every character rise together. Fades out before
+// the lake so we never raise ground up through the water.
+function smoothstep(a, b, x) {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+function ceremonyLift(x, z) {
+  const LIFT = 2.0; // ~7 ft raised terrace
+  const corridor = 1 - smoothstep(PATH_HALF + 3, PATH_HALF + 13, distToPath(x, z));
+  const dm = Math.hypot(x - LAYOUT.mandap.pos[0], z - (LAYOUT.bride.pos[1] - 3));
+  const disc = 1 - smoothstep(9, 20, dm); // broad plateau under the mandap + bride
+  let f = Math.max(corridor, disc);
+  f *= smoothstep(15, 20.5, Math.hypot(x, z)); // never lift the lake bed
+  return LIFT * f;
 }
 const CLEAR = [
   { x: LAYOUT.mandap.pos[0], z: LAYOUT.mandap.pos[1], r: 11 },

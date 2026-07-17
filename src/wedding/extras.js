@@ -61,17 +61,21 @@ export function createPlaneBanner(text, opts = {}) {
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.6), redMat);
   fin.position.set(0, 0.36, -1.9); craft.add(fin);
 
-  // large trailing horizontal banner — correct text on BOTH faces, big & readable
-  const bw = 7.5, bl = 36;
-  const bgeo = new THREE.PlaneGeometry(bw, bl, 1, 44);
-  bgeo.rotateX(-Math.PI / 2); // flat, length along Z
-  const btex = makeBannerTexture(text, { size: 128, w: 1536 });
+  // Large trailing VERTICAL banner. The geometry's FIRST arg is the LENGTH, so
+  // the texture's horizontal text maps ALONG the banner length (not smeared
+  // across its width — that was the streaking bug). Two faces, back flipped, so
+  // it reads correctly from both sides.
+  const bl = 40, bh = 7;
+  const bgeo = new THREE.PlaneGeometry(bl, bh, 48, 1); // x = length (u), y = height (v)
+  const btex = makeBannerTexture(text, { size: 132, w: 1536 });
   const btexB = btex.clone();
   btexB.wrapS = THREE.RepeatWrapping; btexB.repeat.x = -1; btexB.offset.x = 1; btexB.needsUpdate = true;
   const bmatF = new THREE.MeshStandardMaterial({ map: btex, side: THREE.FrontSide, roughness: 0.85, metalness: 0.0 });
   const bmatB = new THREE.MeshStandardMaterial({ map: btexB, side: THREE.BackSide, roughness: 0.85, metalness: 0.0 });
   const bannerF = new THREE.Mesh(bgeo, bmatF);
   const bannerB = new THREE.Mesh(bgeo, bmatB);
+  // turn the banner so its length trails behind (along -Z) and it stands vertical
+  bannerF.rotation.y = bannerB.rotation.y = Math.PI / 2;
   bannerF.position.z = bannerB.position.z = -6 - bl / 2;
   body.add(bannerF, bannerB);
   const base = bgeo.attributes.position.array.slice();
@@ -92,8 +96,8 @@ export function createPlaneBanner(text, opts = {}) {
       // ripple the banner
       const p = bgeo.attributes.position;
       for (let i = 0; i < p.count; i++) {
-        const bz = base[i * 3 + 2];
-        p.setY(i, Math.sin(bz * 0.32 + t * 4.0) * 0.8 * ((bz + bl / 2) / bl + 0.2));
+        const bx = base[i * 3]; // position along the banner length
+        p.setZ(i, Math.sin(bx * 0.28 + t * 3.6) * 0.45); // gentle ripple along the normal
       }
       p.needsUpdate = true;
     },
