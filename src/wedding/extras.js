@@ -8,7 +8,7 @@ import { PAL } from './shared.js';
 // Fabric-banner canvas texture (used by the plane + the elephant banner)
 // ---------------------------------------------------------------------------
 export function makeBannerTexture(text, opts = {}) {
-  const W = 1024, H = 256;
+  const W = opts.w || 1024, H = opts.h || 256;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
@@ -46,33 +46,39 @@ export function createPlaneBanner(text, opts = {}) {
   const redMat = new THREE.MeshStandardMaterial({ color: PAL.crimson, roughness: 0.5, metalness: 0.1 });
   const goldMat = new THREE.MeshStandardMaterial({ color: PAL.gold, roughness: 0.3, metalness: 0.85, emissive: PAL.brass, emissiveIntensity: 0.25 });
 
-  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.34, 4, 8), bodyMat);
-  fuse.rotation.x = Math.PI / 2; body.add(fuse);
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.8, 8), goldMat);
-  nose.rotation.x = Math.PI / 2; nose.position.z = 2.4; body.add(nose);
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.1, 0.8), redMat);
-  wing.position.z = 0.2; body.add(wing);
-  const tailW = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.5), redMat);
-  tailW.position.z = -1.9; body.add(tailW);
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.6), redMat);
-  fin.position.set(0, 0.36, -1.9); body.add(fin);
+  const craft = new THREE.Group();
+  craft.scale.setScalar(1.9); // larger so it reads clearly from the ground
+  body.add(craft);
 
-  // trailing horizontal banner
-  const bw = 2.6, bl = 13;
-  const bgeo = new THREE.PlaneGeometry(bw, bl, 1, 26);
-  bgeo.rotateX(-Math.PI / 2); // lie flat, length along Z
-  const bmat = new THREE.MeshStandardMaterial({
-    map: makeBannerTexture(text, { size: 118 }), // burgundy cloth, gold text — reads without blooming out
-    side: THREE.DoubleSide, roughness: 0.85, metalness: 0.0,
-  });
-  const banner = new THREE.Mesh(bgeo, bmat);
-  banner.position.z = -3 - bl / 2;
-  body.add(banner);
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.34, 4, 8), bodyMat);
+  fuse.rotation.x = Math.PI / 2; craft.add(fuse);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.8, 8), goldMat);
+  nose.rotation.x = Math.PI / 2; nose.position.z = 2.4; craft.add(nose);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.1, 0.8), redMat);
+  wing.position.z = 0.2; craft.add(wing);
+  const tailW = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.5), redMat);
+  tailW.position.z = -1.9; craft.add(tailW);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.6), redMat);
+  fin.position.set(0, 0.36, -1.9); craft.add(fin);
+
+  // large trailing horizontal banner — correct text on BOTH faces, big & readable
+  const bw = 7.5, bl = 36;
+  const bgeo = new THREE.PlaneGeometry(bw, bl, 1, 44);
+  bgeo.rotateX(-Math.PI / 2); // flat, length along Z
+  const btex = makeBannerTexture(text, { size: 128, w: 1536 });
+  const btexB = btex.clone();
+  btexB.wrapS = THREE.RepeatWrapping; btexB.repeat.x = -1; btexB.offset.x = 1; btexB.needsUpdate = true;
+  const bmatF = new THREE.MeshStandardMaterial({ map: btex, side: THREE.FrontSide, roughness: 0.85, metalness: 0.0 });
+  const bmatB = new THREE.MeshStandardMaterial({ map: btexB, side: THREE.BackSide, roughness: 0.85, metalness: 0.0 });
+  const bannerF = new THREE.Mesh(bgeo, bmatF);
+  const bannerB = new THREE.Mesh(bgeo, bmatB);
+  bannerF.position.z = bannerB.position.z = -6 - bl / 2;
+  body.add(bannerF, bannerB);
   const base = bgeo.attributes.position.array.slice();
 
-  const R = opts.radius || 96;
-  const H0 = opts.height || 44;
-  const speed = opts.speed || 0.075;
+  const R = opts.radius || 55;
+  const H0 = opts.height || 30;
+  const speed = opts.speed || 0.085;
 
   return {
     group: g,
@@ -87,7 +93,7 @@ export function createPlaneBanner(text, opts = {}) {
       const p = bgeo.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const bz = base[i * 3 + 2];
-        p.setY(i, Math.sin(bz * 0.5 + t * 4.5) * 0.45 * ((bz + bl / 2) / bl + 0.2));
+        p.setY(i, Math.sin(bz * 0.32 + t * 4.0) * 0.8 * ((bz + bl / 2) / bl + 0.2));
       }
       p.needsUpdate = true;
     },
@@ -233,24 +239,26 @@ export function createFirework(opts = {}) {
 // ---------------------------------------------------------------------------
 export function createTeamGroomBanner(text = 'TEAM GROOM') {
   const g = new THREE.Group();
-  const w = 3.4, h = 0.95;
-  const geo = new THREE.PlaneGeometry(w, h, 16, 1);
-  const mat = new THREE.MeshStandardMaterial({
-    map: makeBannerTexture(text, { size: 140 }),
-    side: THREE.DoubleSide, roughness: 0.82, metalness: 0.0,
-    emissive: 0x2a0810, emissiveIntensity: 0.15,
-  });
-  const cloth = new THREE.Mesh(geo, mat);
-  cloth.position.y = h / 2;
-  g.add(cloth);
+  const w = 4.4, h = 1.25;
+  const geo = new THREE.PlaneGeometry(w, h, 20, 1);
+  // Two single-sided cloths sharing one (deforming) geometry: the back face uses
+  // a horizontally-flipped texture so the text reads correctly from BOTH sides.
+  const tex = makeBannerTexture(text, { size: 150 });
+  const texB = tex.clone();
+  texB.wrapS = THREE.RepeatWrapping; texB.repeat.x = -1; texB.offset.x = 1; texB.needsUpdate = true;
+  const matF = new THREE.MeshStandardMaterial({ map: tex, side: THREE.FrontSide, roughness: 0.82, metalness: 0.0, emissive: 0x2a0810, emissiveIntensity: 0.15 });
+  const matB = new THREE.MeshStandardMaterial({ map: texB, side: THREE.BackSide, roughness: 0.82, metalness: 0.0, emissive: 0x2a0810, emissiveIntensity: 0.15 });
+  const clothF = new THREE.Mesh(geo, matF); clothF.position.y = h / 2;
+  const clothB = new THREE.Mesh(geo, matB); clothB.position.y = h / 2;
+  g.add(clothF, clothB);
   const poleMat = new THREE.MeshStandardMaterial({ color: PAL.brass, metalness: 0.9, roughness: 0.3 });
-  const poleGeo = new THREE.CylinderGeometry(0.045, 0.045, 1.5, 6);
+  const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 1.9, 6);
   [-1, 1].forEach((s) => {
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.set((s * w) / 2, h / 2 - 0.1, 0);
     g.add(pole);
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), poleMat);
-    knob.position.set((s * w) / 2, h + 0.3, 0);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), poleMat);
+    knob.position.set((s * w) / 2, h + 0.4, 0);
     g.add(knob);
   });
   const base = geo.attributes.position.array.slice();
@@ -260,7 +268,7 @@ export function createTeamGroomBanner(text = 'TEAM GROOM') {
       const p = geo.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const bx = base[i * 3];
-        p.setZ(i, Math.sin(bx * 1.6 + t * 3.2) * 0.13);
+        p.setZ(i, Math.sin(bx * 1.5 + t * 3.2) * 0.14);
       }
       p.needsUpdate = true;
     },

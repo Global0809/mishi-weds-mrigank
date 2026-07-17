@@ -243,10 +243,15 @@ function getTerrainHeight(x, z) {
 
 function faceAngle(px, pz, tx, tz) { return Math.atan2(tx - px, tz - pz); }
 
-// Facing helper for [x,z] + faceToward[x,z]
+// Extra lift so people/props clearly stand ON TOP of the undulating ground
+// instead of being visually swallowed by terrain crowns from low angles.
+const CHAR_LIFT = 0.28;
+
+// Facing helper for [x,z] + faceToward[x,z]. Static props seat on the highest
+// ground under their small footprint (never sink into a bump).
 function place(group, spec, opts = {}) {
   const x = spec.pos[0], z = spec.pos[1];
-  const y = (opts.y !== undefined) ? opts.y : getTerrainHeight(x, z);
+  const y = (opts.y !== undefined) ? opts.y : sampleMaxHeight(x, z, 0.7);
   group.position.set(x, y, z);
   if (spec.faceToward) group.rotation.y = faceAngle(x, z, spec.faceToward[0], spec.faceToward[1]);
   scene.add(group);
@@ -262,7 +267,7 @@ function mount(asset, spec, opts = {}) {
   }
   const wrap = new THREE.Group();
   const x = spec.pos[0], z = spec.pos[1];
-  wrap.position.set(x, opts.y !== undefined ? opts.y : getTerrainHeight(x, z), z);
+  wrap.position.set(x, opts.y !== undefined ? opts.y : sampleMaxHeight(x, z, 1.0) + CHAR_LIFT, z);
   if (spec.faceToward) wrap.rotation.y = faceAngle(x, z, spec.faceToward[0], spec.faceToward[1]);
   wrap.add(asset.group);
   scene.add(wrap);
@@ -716,17 +721,19 @@ mount(createFloralArch(), { pos: [3, -27], faceToward: [-2, -31] });
 mount(createFloralArch(), { pos: [-7, -27], faceToward: [-2, -31] });
 
 // --- The couple, the mount, the elephant (standing on the raised carpet) ---
-const CARPET_LIFT = 0.18;
-mount(createHorseGroom(), LAYOUT.horseGroom, { y: getTerrainHeight(...LAYOUT.horseGroom.pos) + CARPET_LIFT });
+const CARPET_LIFT = 0.32; // matches the carpet's terrain lift
+const hgY = sampleMaxHeight(LAYOUT.horseGroom.pos[0], LAYOUT.horseGroom.pos[1], 1.4) + CARPET_LIFT;
+mount(createHorseGroom(), LAYOUT.horseGroom, { y: hgY });
 mount(createBride(), LAYOUT.bride);
 
 // Elephant directly behind the groom, carrying a "TEAM GROOM" banner in its trunk
-mount(createElephant(), LAYOUT.elephant, { y: getTerrainHeight(...LAYOUT.elephant.pos) + CARPET_LIFT });
+const elY = sampleMaxHeight(LAYOUT.elephant.pos[0], LAYOUT.elephant.pos[1], 2.2) + CARPET_LIFT;
+mount(createElephant(), LAYOUT.elephant, { y: elY });
 {
   const ex = LAYOUT.elephant.pos[0], ez = LAYOUT.elephant.pos[1];
   const banner = createTeamGroomBanner('TEAM GROOM');
   const w = new THREE.Group();
-  w.position.set(ex, getTerrainHeight(ex, ez) + 2.2, ez - 3.4); // held forward off the trunk, toward the groom/camera
+  w.position.set(ex, elY + 2.3, ez - 3.4); // held forward off the trunk, toward the groom/camera
   w.add(banner.group);
   scene.add(w);
   updaters.push(banner.update);
@@ -749,8 +756,8 @@ LAYOUT.guests.forEach((g, i) => mount(createGuest({ variant: g.variant, phase: i
 mount(createGuest({ variant: 'cheering', phase: 0.5 }), LAYOUT.moneyThrower);
 {
   const [mx, mz] = LAYOUT.moneyThrower.pos;
-  const my = getTerrainHeight(mx, mz);
-  const money = createMoneyFountain({ origin: [mx - 1.4, my + 2.0, mz + 0.7], ground: my + 0.1, count: IS_MOBILE ? 22 : 36 });
+  const my = sampleMaxHeight(mx, mz, 1.0) + CHAR_LIFT;
+  const money = createMoneyFountain({ origin: [mx - 1.4, my + 1.8, mz + 0.7], ground: my + 0.05, count: IS_MOBILE ? 22 : 36 });
   scene.add(money.group);
   updaters.push(money.update);
 }
@@ -759,8 +766,8 @@ mount(createGuest({ variant: 'cheering', phase: 0.5 }), LAYOUT.moneyThrower);
 mount(createGuest({ variant: 'cheering', phase: 2.3 }), LAYOUT.fireworkGuy);
 {
   const [fx, fz] = LAYOUT.fireworkGuy.pos;
-  const fy = getTerrainHeight(fx, fz);
-  const fw = createFirework({ origin: [fx - 0.4, fy + 1.5, fz], rise: 12 });
+  const fy = sampleMaxHeight(fx, fz, 1.0) + CHAR_LIFT;
+  const fw = createFirework({ origin: [fx - 0.4, fy + 1.6, fz], rise: 13 });
   scene.add(fw.group);
   updaters.push(fw.update);
 }
@@ -823,7 +830,7 @@ LAYOUT.swans.forEach((s) => {
 });
 
 // --- Aerial banner plane circling the whole world --------------------
-const plane = createPlaneBanner(COUPLE.bride + ' weds ' + COUPLE.groom, { radius: 96, height: 45, speed: 0.07 });
+const plane = createPlaneBanner(COUPLE.bride + ' weds ' + COUPLE.groom, { radius: 55, height: 30, speed: 0.085 });
 scene.add(plane.group);
 updaters.push(plane.update);
 

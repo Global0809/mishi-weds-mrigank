@@ -127,7 +127,7 @@ export function createCeremonialPath(opts) {
   // the carpet is a flat chord between its edges and any crown in the ground
   // between them pokes straight through the middle.
   const CROSS = 9;
-  const LIFT = 0.16;
+  const LIFT = 0.32;
   const pos = new Float32Array(N * CROSS * 3);
   const uv = new Float32Array(N * CROSS * 2);
   const idx = [];
