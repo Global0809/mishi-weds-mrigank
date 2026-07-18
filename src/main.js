@@ -249,7 +249,7 @@ function getTerrainHeight(x, z) {
   const disc = 1 - smoothstep(11, 22, dm);
   const f = Math.max(corridor, disc) * smoothstep(15, 20.5, Math.hypot(x, z));
   if (f <= 0) return b;
-  const LIFT = 2.4;
+  const LIFT = 1.44; // 40% lower than before — a gentle raised terrace, not a mound
   const target = baseTerrain(near.cx, near.cz) + LIFT; // flat level for this stretch
   return b + (target - b) * f; // lift/flatten toward the terrace, blend at the edges
 }
