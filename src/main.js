@@ -229,7 +229,7 @@ scene.add(sunGroup);
 // =====================================================================
 //  Terrain helpers (kept) + placement helpers
 // =====================================================================
-function getTerrainHeight(x, z) {
+function baseTerrain(x, z) {
   let h = 0;
   h += Math.sin(x * 0.05) * Math.cos(z * 0.05) * 4;
   h += Math.sin(x * 0.1 + 1) * Math.cos(z * 0.08) * 2;
@@ -238,7 +238,24 @@ function getTerrainHeight(x, z) {
   h += Math.sin(x * 0.07 + 2) * Math.cos(z * 0.06 - 1) * 1.5;
   const distSq = x * x + z * z;
   if (distSq < 400) h *= 0.3 * (distSq / 400);
-  return h + ceremonyLift(x, z);
+  return h;
+}
+// Raised ceremonial terrace. Instead of just ADDING height (which keeps the
+// bumps, so humps still poke above the carpet), it FLATTENS the carpet corridor
+// and the mandap/bride area up to (carpet-centerline base height + LIFT). That
+// removes the side-humps so no land ever sits above the carpet. Fades out before
+// the lake and blends smoothly into the valley.
+function getTerrainHeight(x, z) {
+  const b = baseTerrain(x, z);
+  const near = nearestOnPath(x, z);
+  const corridor = 1 - smoothstep(PATH_HALF + 3, PATH_HALF + 14, near.d);
+  const dm = Math.hypot(x - LAYOUT.mandap.pos[0], z - (LAYOUT.bride.pos[1] - 3));
+  const disc = 1 - smoothstep(9, 20, dm);
+  const f = Math.max(corridor, disc) * smoothstep(15, 20.5, Math.hypot(x, z));
+  if (f <= 0) return b;
+  const LIFT = 2.4;
+  const target = baseTerrain(near.cx, near.cz) + LIFT; // flat level for this stretch
+  return b + (target - b) * f; // lift/flatten toward the terrace, blend at the edges
 }
 
 function faceAngle(px, pz, tx, tz) { return Math.atan2(tx - px, tz - pz); }
@@ -320,14 +337,21 @@ function smoothstep(a, b, x) {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 }
-function ceremonyLift(x, z) {
-  const LIFT = 2.0; // ~7 ft raised terrace
-  const corridor = 1 - smoothstep(PATH_HALF + 3, PATH_HALF + 13, distToPath(x, z));
-  const dm = Math.hypot(x - LAYOUT.mandap.pos[0], z - (LAYOUT.bride.pos[1] - 3));
-  const disc = 1 - smoothstep(9, 20, dm); // broad plateau under the mandap + bride
-  let f = Math.max(corridor, disc);
-  f *= smoothstep(15, 20.5, Math.hypot(x, z)); // never lift the lake bed
-  return LIFT * f;
+// Nearest point on the carpet centerline — used to flatten the terrace across
+// its width to a single per-stretch height (kills side-humps above the carpet).
+function nearestOnPath(x, z) {
+  let best = Infinity, cx = PATH_PTS[0][0], cz = PATH_PTS[0][1];
+  for (let i = 0; i < PATH_PTS.length - 1; i++) {
+    const a = PATH_PTS[i], b = PATH_PTS[i + 1];
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    const len2 = dx * dx + dz * dz || 1e-6;
+    let t = ((x - a[0]) * dx + (z - a[1]) * dz) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const px = a[0] + t * dx, pz = a[1] + t * dz;
+    const d = Math.hypot(x - px, z - pz);
+    if (d < best) { best = d; cx = px; cz = pz; }
+  }
+  return { d: best, cx, cz };
 }
 const CLEAR = [
   { x: LAYOUT.mandap.pos[0], z: LAYOUT.mandap.pos[1], r: 11 },
@@ -505,7 +529,7 @@ function createConifer(x, z, scale = 1) {
 for (let i = 0; i < 80; i++) {
   const x = (Math.random() - 0.5) * 130, z = (Math.random() - 0.5) * 130;
   if (x * x + z * z < 350) continue;
-  if (isNearRiver(x, z, 4) || blocked(x, z, 4)) continue;
+  if (isNearRiver(x, z, 4) || blocked(x, z, 11)) continue;
   scene.add(createConifer(x, z, 0.6 + Math.random() * 0.9));
 }
 
@@ -534,7 +558,7 @@ function createDeciduous(x, z, scale = 1) {
 for (let i = 0; i < 30; i++) {
   const x = (Math.random() - 0.5) * 110, z = (Math.random() - 0.5) * 110;
   if (x * x + z * z < 350) continue;
-  if (isNearRiver(x, z, 4) || blocked(x, z, 4)) continue;
+  if (isNearRiver(x, z, 4) || blocked(x, z, 11)) continue;
   scene.add(createDeciduous(x, z, 0.5 + Math.random() * 0.7));
 }
 
