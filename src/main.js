@@ -33,7 +33,7 @@ const LAYOUT = {
   elephant: { pos: [24, 27], faceToward: [24, 8] },
   path: {
     points: [[14, 44], [20, 34], [24, 22], [25, 8], [23, -8], [16, -20], [6, -27], [-2, -29]],
-    width: 5,
+    width: 7,
   },
   toranGates: [
     { pos: [24, 35], faceToward: [24, 20] },
@@ -52,14 +52,10 @@ const LAYOUT = {
     { item: 'garland', pos: [-7, -25], faceToward: [-2, -30] },
     { item: 'lamp', pos: [5, -23], faceToward: [-2, -30] },
   ],
-  lampPillars: [
-    { pos: [16, 30] }, { pos: [32, 30] }, { pos: [16, 2] }, { pos: [32, 2] },
-    { pos: [15, -13] }, { pos: [31, -13] }, { pos: [7, -25] }, { pos: [-9, -25] },
-  ],
   petalArea: { cx: 16, cz: 0, radius: 32 },
   // Default framing features the PEOPLE, with the path leading back to the mandap + bride.
   camera: { introFrom: [58, 44, 72], introTo: [46, 15, 34], target: [17, 3.5, 4], introDurationSec: 7 },
-  // Coordinated dance floor: two tidy rows flanking the carpet, facing the groom.
+  // Coordinated dance floor: tidy rows flanking the carpet, facing the groom.
   dancers: [
     { variant: 'armsUpM', pos: [20, 7] },
     { variant: 'bhangraM', pos: [29, 7] },
@@ -67,22 +63,22 @@ const LAYOUT = {
     { variant: 'jumpM', pos: [29, 0] },
     { variant: 'clapM', pos: [20, -7] },
     { variant: 'thumkaF', pos: [29, -7] },
-    { variant: 'armsUpM', pos: [22.5, -12] },
-    { variant: 'bhangraM', pos: [26.5, -12] },
   ],
   // Two female dancers flanking the bride so she is not isolated
   brideDancers: [
     { variant: 'spinF', pos: [-5.5, -27.5], faceToward: [-5.5, 6] },
     { variant: 'thumkaF', pos: [1.5, -27.5], faceToward: [1.5, 6] },
   ],
-  // guests / onlookers lining the path edges, facing the carpet
+  // A few guests lining the near carpet edge, facing the procession
   guests: [
-    { variant: 'clapping', pos: [15, 33], faceToward: [24, 30] },
-    { variant: 'cheering', pos: [33, 31], faceToward: [24, 26] },
-    { variant: 'clapping', pos: [34, 16], faceToward: [26, 12] },
-    { variant: 'namaste', pos: [14, 17], faceToward: [24, 12] },
-    { variant: 'showering', pos: [33, -2], faceToward: [26, -2] },
-    { variant: 'cheering', pos: [12, -6], faceToward: [22, -4] },
+    { variant: 'cheering', pos: [18, 30], faceToward: [24, 26] },
+    { variant: 'namaste', pos: [30, 10], faceToward: [25, 8] },
+    { variant: 'clapping', pos: [16, -14], faceToward: [21, -18] },
+  ],
+  // Two musicians playing right beside the groom
+  groomMusicians: [
+    { item: 'shehnai', pos: [21, 18], faceToward: [23, -8] },
+    { item: 'dhol', pos: [27, 18], faceToward: [23, -8] },
   ],
   moneyThrower: { pos: [29, 13], faceToward: [24, 14] },
   fireworkGuy: { pos: [20, 13], faceToward: [24, 14] },
@@ -248,9 +244,9 @@ function baseTerrain(x, z) {
 function getTerrainHeight(x, z) {
   const b = baseTerrain(x, z);
   const near = nearestOnPath(x, z);
-  const corridor = 1 - smoothstep(PATH_HALF + 3, PATH_HALF + 14, near.d);
+  const corridor = 1 - smoothstep(PATH_HALF + 7, PATH_HALF + 17, near.d);
   const dm = Math.hypot(x - LAYOUT.mandap.pos[0], z - (LAYOUT.bride.pos[1] - 3));
-  const disc = 1 - smoothstep(9, 20, dm);
+  const disc = 1 - smoothstep(11, 22, dm);
   const f = Math.max(corridor, disc) * smoothstep(15, 20.5, Math.hypot(x, z));
   if (f <= 0) return b;
   const LIFT = 2.4;
@@ -353,13 +349,29 @@ function nearestOnPath(x, z) {
   }
   return { d: best, cx, cz };
 }
+// Lamp pillars evenly flanking the carpet edges (tidy, and on the raised terrace)
+const LAMP_POS = (() => {
+  const pts = LAYOUT.path.points;
+  const off = LAYOUT.path.width / 2 + 1.7;
+  const out = [];
+  for (let i = 1; i < pts.length - 1; i += 2) { // every other bend, both sides
+    const prev = pts[i - 1], next = pts[i + 1], p = pts[i];
+    let tx = next[0] - prev[0], tz = next[1] - prev[1];
+    const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+    const px = -tz, pz = tx;
+    out.push([p[0] + px * off, p[1] + pz * off]);
+    out.push([p[0] - px * off, p[1] - pz * off]);
+  }
+  return out;
+})();
+
 const CLEAR = [
   { x: LAYOUT.mandap.pos[0], z: LAYOUT.mandap.pos[1], r: 11 },
   { x: LAYOUT.bride.pos[0], z: LAYOUT.bride.pos[1], r: 3 },
   { x: LAYOUT.horseGroom.pos[0], z: LAYOUT.horseGroom.pos[1], r: 6.5 },
   { x: LAYOUT.elephant.pos[0], z: LAYOUT.elephant.pos[1], r: 7.5 },
   ...LAYOUT.toranGates.map((g) => ({ x: g.pos[0], z: g.pos[1], r: 4.5 })),
-  ...LAYOUT.lampPillars.map((p) => ({ x: p.pos[0], z: p.pos[1], r: 1.8 })),
+  ...LAMP_POS.map((p) => ({ x: p[0], z: p[1], r: 1.8 })),
   ...LAYOUT.attendants.map((a) => ({ x: a.pos[0], z: a.pos[1], r: 2.2 })),
   ...LAYOUT.dancers.map((d) => ({ x: d.pos[0], z: d.pos[1], r: 2 })),
   ...LAYOUT.brideDancers.map((d) => ({ x: d.pos[0], z: d.pos[1], r: 2 })),
@@ -620,7 +632,7 @@ flowerColors.forEach((col) => {
 // Grass tufts (kept, reduced, off the path)
 const grassGeo = new THREE.PlaneGeometry(0.15, 0.6);
 grassGeo.translate(0, 0.3, 0);
-const grassCount = IS_MOBILE ? 900 : 1400;
+const grassCount = IS_MOBILE ? 500 : 850;
 const grass = new THREE.InstancedMesh(grassGeo, new THREE.MeshStandardMaterial({
   color: 0x3a7a2e, roughness: 0.9, side: THREE.DoubleSide, alphaTest: 0.5,
 }), grassCount);
@@ -689,24 +701,24 @@ function createCloud(x, y, z) {
   return group;
 }
 const clouds = [];
-for (let i = 0; i < 14; i++) {
+for (let i = 0; i < 6; i++) {
   const c = createCloud((Math.random() - 0.5) * 180, 24 + Math.random() * 18, -40 + (Math.random() - 0.5) * 80);
   scene.add(c); clouds.push(c);
 }
 
 const birds = [];
-for (let i = 0; i < 15; i++) {
+for (let i = 0; i < 5; i++) {
   const bird = new THREE.Group();
   const mat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a, side: THREE.DoubleSide });
   const wL = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.15), mat); wL.position.x = -0.6; bird.add(wL);
   const wR = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.15), mat); wR.position.x = 0.6; bird.add(wR);
-  bird.position.set(-40 + Math.random() * 30, 20 + Math.random() * 12, -50 + Math.random() * 30);
+  bird.position.set(-40 + Math.random() * 30, 30 + Math.random() * 14, -50 + Math.random() * 30);
   bird.userData = { phase: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.5, baseX: bird.position.x };
   scene.add(bird); birds.push(bird);
 }
 
 const butterflies = [];
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 6; i++) {
   const group = new THREE.Group();
   const wingCol = [PAL.marigold, 0xffdd44, PAL.rose, 0x00bcd4, PAL.gold][Math.floor(Math.random() * 5)];
   const mat = new THREE.MeshStandardMaterial({ color: wingCol, side: THREE.DoubleSide, roughness: 0.3, emissive: wingCol, emissiveIntensity: 0.12 });
@@ -758,7 +770,7 @@ scene.add(processionLight);
 LAYOUT.toranGates.forEach((g) => mount(createToranGate(), g));
 
 // --- Lamp pillars lining the path ------------------------------------
-LAYOUT.lampPillars.forEach((p) => mount(createCarvedPillar(), { pos: p.pos }));
+LAMP_POS.forEach((p) => mount(createCarvedPillar(), { pos: p }, { y: getTerrainHeight(p[0], p[1]) }));
 
 // A couple of free-standing floral arches framing the mandap approach
 mount(createFloralArch(), { pos: [3, -27], faceToward: [-2, -31] });
@@ -785,6 +797,9 @@ mount(createElephant(), LAYOUT.elephant, { y: elY });
 
 // --- Attendants (each with a ceremonial item) ------------------------
 LAYOUT.attendants.forEach((a, i) => mount(createAttendant({ item: a.item, phase: i * 0.7 }), a));
+
+// Two musicians playing right beside the groom
+LAYOUT.groomMusicians.forEach((m, i) => mount(createAttendant({ item: m.item, phase: 3 + i }), m));
 
 // --- Coordinated dancers (two rows facing the groom) -----------------
 LAYOUT.dancers.forEach((d, i) =>
@@ -967,7 +982,7 @@ controls.addEventListener('end', () => { interacting = false; idleTimer = 0; });
 let audioStarted = false;
 let audioMuted = false;
 let masterGain = null;
-const AMBIENT_VOL = 0.1;
+const AMBIENT_VOL = 0.16;
 function startAudio() {
   if (audioStarted) return;
   audioStarted = true;
@@ -1006,6 +1021,56 @@ function startAudio() {
     const ng = ctx.createGain(); ng.gain.value = 0.045;
     noise.connect(bp); bp.connect(ng); ng.connect(masterGain);
     noise.start();
+
+    // ---- Shehnai melody + tabla rhythm (procedural, raga-flavoured) ----
+    const musicGain = ctx.createGain();
+    musicGain.gain.value = 1.0;
+    musicGain.connect(masterGain);
+    const shehnai = (time, freq, dur) => {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(freq, time);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.07, time + 0.1);
+      g.gain.setValueAtTime(0.07, time + dur - 0.14);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+      const bp2 = ctx.createBiquadFilter();
+      bp2.type = 'bandpass'; bp2.frequency.value = freq * 2.6; bp2.Q.value = 5;
+      const vib = ctx.createOscillator(); vib.frequency.value = 5.5;
+      const vibG = ctx.createGain(); vibG.gain.value = freq * 0.012;
+      vib.connect(vibG); vibG.connect(o.frequency);
+      o.connect(bp2); bp2.connect(g); g.connect(musicGain);
+      o.start(time); vib.start(time); o.stop(time + dur + 0.05); vib.stop(time + dur + 0.05);
+    };
+    const tabla = (time, freq, dur, gain) => {
+      const o = ctx.createOscillator();
+      o.frequency.setValueAtTime(freq * 1.8, time);
+      o.frequency.exponentialRampToValueAtTime(freq, time + 0.05);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(gain, time);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+      o.connect(g); g.connect(musicGain);
+      o.start(time); o.stop(time + dur + 0.02);
+    };
+    const BPM = 78, beat = 60 / BPM, bar = beat * 4;
+    const phrase = [261.63, 293.66, 329.63, 349.23, 392.0, 349.23, 329.63, 293.66, 261.63, 293.66, 329.63, 392.0];
+    let melodyIdx = 0;
+    let barTime = ctx.currentTime + 0.3;
+    const scheduleBar = () => {
+      const t0 = barTime;
+      tabla(t0, 150, 0.22, 0.15); tabla(t0 + beat, 210, 0.16, 0.10);
+      tabla(t0 + 1.5 * beat, 150, 0.18, 0.09); tabla(t0 + 2 * beat, 150, 0.22, 0.14);
+      tabla(t0 + 3 * beat, 210, 0.16, 0.10); tabla(t0 + 3.5 * beat, 260, 0.14, 0.08);
+      shehnai(t0, phrase[melodyIdx % phrase.length], beat * 2); melodyIdx++;
+      shehnai(t0 + beat * 2, phrase[melodyIdx % phrase.length], beat * 2); melodyIdx++;
+      barTime += bar;
+    };
+    scheduleBar(); scheduleBar();
+    setInterval(() => {
+      if (ctx.state !== 'running') return;
+      while (barTime < ctx.currentTime + 2.5) scheduleBar();
+    }, 600);
   } catch (e) { /* audio unavailable — stay silent */ }
 }
 function setSoundIcon() {

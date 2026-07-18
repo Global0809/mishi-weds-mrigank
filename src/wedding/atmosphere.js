@@ -44,7 +44,7 @@ export function createPetalSystem(opts = {}) {
   const getHeight =
     typeof opts.getHeight === "function" ? opts.getHeight : () => 0;
 
-  const COUNT = 150;
+  const COUNT = 70;
 
   // --- Petal geometry: a small curled quad (bent across its width) ----------
   const petalGeo = new THREE.PlaneGeometry(0.16, 0.24, 2, 1);
